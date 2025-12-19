@@ -2,16 +2,13 @@ import pandas as pd
 import numpy as np
 import requests
 import os
-import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
-# ============================================================================
-# CONFIGURATION SETTINGS
-# ============================================================================
 
+# CONFIGURATION SETTINGS
 class Config:
     """Configuration settings for the application"""
     # API Settings
@@ -39,28 +36,31 @@ class Config:
         'Germany': 'DE'
     }
 
-# ============================================================================
-# LOGGING UTILITIES
-# ============================================================================
 
+# LOGGING UTILITIES
 class Logger:
     """Simple logging utility for professional output"""
     
     @staticmethod
+    def _ts():
+        """Return a compact timestamp for human-friendly logs."""
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    @staticmethod
     def info(message):
-        print(f"[INFO] {message}")
+        print(f"[INFO] {Logger._ts()} - {message}")
     
     @staticmethod
     def success(message):
-        print(f"[SUCCESS] {message}")
+        print(f"[OK] {Logger._ts()} - {message}")
     
     @staticmethod
     def warning(message):
-        print(f"[WARNING] {message}")
+        print(f"[WARN] {Logger._ts()} - {message}")
     
     @staticmethod
     def error(message):
-        print(f"[ERROR] {message}")
+        print(f"[ERR] {Logger._ts()} - {message}")
     
     @staticmethod
     def section(title):
@@ -68,10 +68,8 @@ class Logger:
         print(f"{title}")
         print("=" * 70)
 
-# ============================================================================
-# TASK 1: HOLIDAY DATA FETCHER CLASS
-# ============================================================================
 
+# TASK 1: HOLIDAY DATA FETCHER CLASS
 class HolidayDataFetcher:
     """
     Professional holiday data fetcher with multiple fallback strategies.
@@ -86,20 +84,24 @@ class HolidayDataFetcher:
     def fetch_from_api(self):
         """Fetch holiday data from Nager.Date API"""
         Logger.info("Attempting to fetch holiday data from API...")
-        all_holidays = []
-        
+
+        def _is_public(holiday):
+            return 'Public' in holiday.get('types', [])
+
+        collected = []
+
         for country in self.config.COUNTRIES:
             for year in self.config.YEARS:
                 try:
                     url = f"{self.config.API_BASE_URL}/{year}/{country}"
                     response = requests.get(url, timeout=self.config.API_TIMEOUT)
-                    
+
                     if response.status_code == 200:
                         holidays = response.json()
                         for holiday in holidays:
-                            # Filter for public holidays only
-                            if 'Public' in holiday.get('types', []):
-                                all_holidays.append({
+                            # keep only public holidays
+                            if _is_public(holiday):
+                                collected.append({
                                     'date': holiday.get('date'),
                                     'localName': holiday.get('localName'),
                                     'name': holiday.get('name'),
@@ -110,11 +112,12 @@ class HolidayDataFetcher:
                                     'launchYear': holiday.get('launchYear'),
                                     'types': holiday.get('types')
                                 })
+
                         Logger.info(f"Fetched {len(holidays)} holidays for {country} {year}")
                     else:
                         Logger.warning(f"API request failed for {country} {year}: HTTP {response.status_code}")
                         return None
-                        
+
                 except requests.exceptions.Timeout:
                     Logger.warning(f"Timeout occurred for {country} {year}")
                     return None
@@ -124,13 +127,12 @@ class HolidayDataFetcher:
                 except Exception as e:
                     Logger.error(f"Unexpected error for {country} {year}: {e}")
                     return None
-        
-        if not all_holidays:
+
+        if not collected:
             Logger.warning("No holidays fetched from API")
             return None
-        
-        df = pd.DataFrame(all_holidays)
-        # Convert date column to datetime
+
+        df = pd.DataFrame(collected)
         df['date'] = pd.to_datetime(df['date'])
         Logger.success(f"Successfully fetched {len(df)} total holidays from API")
         return df
@@ -225,10 +227,8 @@ class HolidayDataFetcher:
             raise ValueError("No data available. Call fetch_holidays() first.")
         return self.data
 
-# ============================================================================
-# TASK 2: HOLIDAY COUNTS AGGREGATOR
-# ============================================================================
 
+# TASK 2: HOLIDAY COUNTS AGGREGATOR
 class HolidayCountsAggregator:
     """
     Handles Task 2a and 2b: Count holidays per year per country
@@ -288,10 +288,8 @@ class HolidayCountsAggregator:
         Logger.success(f"Task 2b: Saved holiday counts to '{filepath}'")
         return filepath
 
-# ============================================================================
-# TASK 3: REPAIR ANALYSIS ENGINE
-# ============================================================================
 
+# TASK 3: REPAIR ANALYSIS ENGINE
 class RepairAnalysisEngine:
     """
     Handles Task 3: Business days calculation, lead time analysis, and aggregation
@@ -315,20 +313,17 @@ class RepairAnalysisEngine:
             self.holidays_df['date'] = pd.to_datetime(self.holidays_df['date'])
         
         # Group holidays by country code
-        self.holiday_lookup = {}
-        
+        # use a slightly more descriptive internal name
+        self._holiday_set_by_country = {}
+
         for country_code in self.config.COUNTRIES:
             country_holidays = self.holidays_df[
                 self.holidays_df['countryCode'] == country_code
             ]['date'].dt.date.tolist()
-            self.holiday_lookup[country_code] = set(country_holidays)
+            self._holiday_set_by_country[country_code] = set(country_holidays)
     
     def load_repair_data(self):
         """Load repair data from the provided Excel structure (Task 3a)
-
-        Reads the Excel file located at C:/Users/volat/Downloads/input_file_task3(2).xlsx
-        and expects at minimum the columns: 'Start Date', 'End Date', 'Country'.
-        If 'ID' is not present it will be generated.
         """
         Logger.section("TASK 3: REPAIR ANALYSIS")
 
@@ -390,21 +385,19 @@ class RepairAnalysisEngine:
             return (end_date - start_date).days + 1
         
         # Get holidays for this country
-        holidays = self.holiday_lookup.get(country_code, set())
-        
-        # Generate all dates in range
-        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-        
-        # Count business days (exclude weekends and holidays)
+        holidays = self._holiday_set_by_country.get(country_code, set())
+
+        # Generate all dates in the interval
+        all_days = pd.date_range(start=start_date, end=end_date, freq='D')
+
         business_days = 0
-        for date in date_range:
-            date_obj = date.date()
-            # Check if weekday (Monday=0, Sunday=6)
-            if date.weekday() < 5:  # Monday to Friday
-                # Check if not a holiday
+        for dt in all_days:
+            date_obj = dt.date()
+            # Weekdays only (Mon-Fri)
+            if dt.weekday() < 5:
                 if date_obj not in holidays:
                     business_days += 1
-        
+
         return business_days
     
     def calculate_all_business_days(self):
@@ -567,10 +560,8 @@ class RepairAnalysisEngine:
             'detailed_results': self.config.OUTPUT_RESULTS_FILE,
             'aggregation': self.config.OUTPUT_AGGREGATION_FILE
         }
-
-# ============================================================================
+    
 # MAIN EXECUTION AND REPORTING
-# ============================================================================
 
 def main():
     """Main execution function"""
@@ -578,10 +569,8 @@ def main():
     
     # Initialize configuration
     config = Config()
-    
-    # ========================================================================
+
     # TASK 1: HOLIDAY DATA
-    # ========================================================================
     Logger.section("TASK 1: FETCHING HOLIDAY DATA")
     
     # Create holiday fetcher
@@ -626,9 +615,8 @@ def main():
     except Exception as e:
         Logger.warning(f"Unable to display date range: {e}")
     
-    # ========================================================================
+ 
     # TASK 2: HOLIDAY COUNTS
-    # ========================================================================
     Logger.section("TASK 2: HOLIDAY COUNTS AGGREGATION")
     
     # Create aggregator
@@ -647,10 +635,8 @@ def main():
         Logger.error(f"Failed to calculate holiday counts: {e}")
         # Create empty counts DataFrame
         counts_df = pd.DataFrame(columns=['Country', 'Year', 'HolidayCount'])
-    
-    # ========================================================================
+
     # TASK 3: REPAIR ANALYSIS
-    # ========================================================================
     Logger.section("TASK 3: REPAIR PERFORMANCE ANALYSIS")
     
     # Create repair analysis engine
@@ -678,9 +664,8 @@ def main():
         # Save results
         output_files = repair_engine.save_results()
         
-        # ========================================================================
+
         # FINAL SUMMARY
-        # ========================================================================
         Logger.section("EXECUTION SUMMARY")
         
         # Count hits and misses
@@ -707,10 +692,8 @@ def main():
         Logger.error(f"Failed to complete repair analysis: {e}")
         Logger.error("Some tasks may not have been completed fully")
 
-# ============================================================================
-# ENTRY POINT WITH ROBUST ERROR HANDLING
-# ============================================================================
 
+# ENTRY POINT WITH ROBUST ERROR HANDLING
 if __name__ == "__main__":
     try:
         main()
