@@ -28,6 +28,8 @@ class Config:
     OUTPUT_COUNTS_FILE = 'holiday_counts.csv'
     OUTPUT_RESULTS_FILE = 'repair_analysis_results.csv'
     OUTPUT_AGGREGATION_FILE = 'country_aggregation.csv'
+    # Repair Excel input path
+    REPAIR_EXCEL_PATH = os.getenv('REPAIR_EXCEL_PATH', r'C:\Users\volat\Downloads\input_file_task3(2).xlsx')
     
     # Country name mapping (repair data uses full names, holiday data uses codes)
     COUNTRY_MAPPING = {
@@ -322,76 +324,62 @@ class RepairAnalysisEngine:
             self.holiday_lookup[country_code] = set(country_holidays)
     
     def load_repair_data(self):
-        """Load repair data from the provided Excel structure (Task 3a)"""
+        """Load repair data from the provided Excel structure (Task 3a)
+
+        Reads the Excel file located at C:/Users/volat/Downloads/input_file_task3(2).xlsx
+        and expects at minimum the columns: 'Start Date', 'End Date', 'Country'.
+        If 'ID' is not present it will be generated.
+        """
         Logger.section("TASK 3: REPAIR ANALYSIS")
-        
-        # Create repair data from provided content
-        repair_data = {
-            'ID': [f'ID_{i:04d}' for i in range(1, 101)],
-            'Country': [
-                'Slovakia', 'Czechia', 'Germany', 'Slovakia', 'Czechia', 'Czechia', 'Austria', 
-                'Slovakia', 'Slovakia', 'Germany', 'Slovakia', 'Czechia', 'Slovakia', 'Austria',
-                'Slovakia', 'Czechia', 'Germany', 'Germany', 'Germany', 'Slovakia', 'Germany',
-                'Austria', 'Slovakia', 'Germany', 'Czechia', 'Czechia', 'Austria', 'Czechia',
-                'Austria', 'Austria', 'Czechia', 'Slovakia', 'Austria', 'Germany', 'Slovakia',
-                'Czechia', 'Czechia', 'Slovakia', 'Slovakia', 'Slovakia', 'Germany', 'Slovakia',
-                'Czechia', 'Germany', 'Germany', 'Germany', 'Germany', 'Slovakia', 'Slovakia',
-                'Czechia', 'Germany', 'Austria', 'Austria', 'Austria', 'Austria', 'Czechia',
-                'Germany', 'Czechia', 'Czechia', 'Slovakia', 'Austria', 'Austria', 'Austria',
-                'Slovakia', 'Germany', 'Slovakia', 'Austria', 'Germany', 'Czechia', 'Germany',
-                'Germany', 'Austria', 'Austria', 'Germany', 'Austria', 'Slovakia', 'Czechia',
-                'Czechia', 'Czechia', 'Slovakia', 'Slovakia', 'Germany', 'Czechia', 'Czechia',
-                'Czechia', 'Austria', 'Slovakia', 'Austria', 'Austria', 'Czechia', 'Germany',
-                'Slovakia', 'Austria', 'Germany', 'Czechia', 'Slovakia', 'Austria', 'Czechia',
-                'Czechia', 'Slovakia'
-            ],
-            'Start Date': [
-                '2022-10-05', '2020-03-02', '2024-08-11', '2022-12-09', '2020-06-30', '2024-12-25',
-                '2021-11-16', '2024-09-01', '2024-04-09', '2022-08-19', '2025-02-13', '2022-01-01',
-                '2022-04-01', '2023-02-10', '2021-12-06', '2023-03-21', '2021-12-03', '2025-07-18',
-                '2022-11-15', '2021-04-09', '2020-04-20', '2020-01-20', '2022-08-22', '2022-01-06',
-                '2023-05-10', '2025-11-10', '2021-12-15', '2023-10-22', '2025-11-02', '2021-08-25',
-                '2020-02-01', '2020-02-08', '2023-02-18', '2022-11-30', '2020-04-02', '2023-01-05',
-                '2024-01-07', '2024-08-06', '2023-08-28', '2025-06-28', '2022-05-02', '2024-08-04',
-                '2021-08-05', '2022-07-30', '2023-11-23', '2023-04-19', '2025-02-18', '2023-03-30',
-                '2022-05-19', '2024-08-22', '2024-05-14', '2022-07-11', '2022-12-03', '2022-02-03',
-                '2025-04-20', '2023-02-11', '2021-11-26', '2024-09-20', '2025-11-26', '2020-02-19',
-                '2025-11-19', '2023-05-19', '2021-11-29', '2023-11-25', '2022-04-06', '2023-09-04',
-                '2022-07-28', '2025-10-19', '2020-12-10', '2022-10-02', '2025-01-11', '2023-08-07',
-                '2020-12-28', '2024-04-12', '2025-11-22', '2023-12-29', '2021-07-16', '2023-05-21',
-                '2022-07-27', '2024-12-03', '2024-10-22', '2023-05-23', '2021-08-20', '2020-05-03',
-                '2025-02-06', '2023-06-22', '2022-05-06', '2024-05-26', '2020-03-03', '2021-11-23',
-                '2020-05-04', '2022-03-31', '2021-03-20', '2020-10-26', '2022-07-02', '2025-12-11',
-                '2021-07-08', '2020-12-09', '2025-07-11', '2020-09-23'
-            ],
-            'End Date': [
-                '2022-10-05', '2020-03-03', '2024-08-19', '2022-12-14', '2020-07-09', '2024-12-29',
-                '2021-11-24', '2024-09-09', '2024-04-13', '2022-08-26', '2025-02-17', '2022-01-11',
-                '2022-04-07', '2023-02-17', '2021-12-06', '2023-03-28', '2021-12-03', '2025-07-20',
-                '2022-11-22', '2021-04-12', '2020-04-26', '2020-01-23', '2022-08-25', '2022-01-16',
-                '2023-05-10', '2025-11-12', '2021-12-23', '2023-10-30', '2025-11-04', '2021-08-29',
-                '2020-02-07', '2020-02-08', '2023-02-23', '2022-12-09', '2020-04-12', '2023-01-10',
-                '2024-01-08', '2024-08-09', '2023-09-01', '2025-07-02', '2022-05-10', '2024-08-08',
-                '2021-08-09', '2022-08-04', '2023-11-27', '2023-04-20', '2025-02-28', '2023-03-31',
-                '2022-05-23', '2024-08-31', '2024-05-20', '2022-07-16', '2022-12-12', '2022-02-09',
-                '2025-04-25', '2023-02-21', '2021-12-02', '2024-09-26', '2025-12-01', '2020-02-26',
-                '2025-11-29', '2023-05-24', '2021-12-07', '2023-12-04', '2022-04-14', '2023-09-05',
-                '2022-08-03', '2025-10-28', '2020-12-14', '2022-10-10', '2025-01-15', '2023-08-07',
-                '2021-01-05', '2024-04-16', '2025-11-29', '2023-12-30', '2021-07-26', '2023-05-21',
-                '2022-07-31', '2024-12-09', '2024-10-30', '2023-05-28', '2021-08-28', '2020-05-10',
-                '2025-02-16', '2023-06-30', '2022-05-14', '2024-05-27', '2020-03-04', '2021-11-27',
-                '2020-05-04', '2022-04-02', '2021-03-26', '2020-10-27', '2022-07-09', '2025-12-13',
-                '2021-07-08', '2020-12-13', '2025-07-15', '2020-09-23'
-            ]
-        }
-        
-        # Create DataFrame and convert dates
-        self.repair_data = pd.DataFrame(repair_data)
-        self.repair_data['Start Date'] = pd.to_datetime(self.repair_data['Start Date'])
-        self.repair_data['End Date'] = pd.to_datetime(self.repair_data['End Date'])
-        
-        Logger.success("Task 3a: Loaded repair data")
-        return self.repair_data
+
+        excel_path = getattr(self.config, 'REPAIR_EXCEL_PATH', None)
+
+        if not excel_path:
+            Logger.error("No repair Excel path configured (Config.REPAIR_EXCEL_PATH)")
+            raise ValueError("No repair Excel path configured (Config.REPAIR_EXCEL_PATH)")
+
+        if not os.path.exists(excel_path):
+            Logger.error(f"Repair Excel file not found: {excel_path}")
+            raise FileNotFoundError(f"Repair Excel file not found: {excel_path}")
+
+        try:
+            df = pd.read_excel(excel_path)
+
+            # Normalize and map column names
+            df.columns = [str(c).strip() for c in df.columns]
+            col_map = {}
+            for c in df.columns:
+                lc = c.lower()
+                if 'start' in lc and 'date' in lc:
+                    col_map[c] = 'Start Date'
+                elif 'end' in lc and 'date' in lc:
+                    col_map[c] = 'End Date'
+                elif 'country' == lc or 'country' in lc:
+                    col_map[c] = 'Country'
+                elif 'id' == lc or lc.endswith('id'):
+                    col_map[c] = 'ID'
+
+            if col_map:
+                df = df.rename(columns=col_map)
+
+            required = ['Start Date', 'End Date', 'Country']
+            missing = [c for c in required if c not in df.columns]
+            if missing:
+                Logger.error(f"Repair Excel missing required columns: {missing}")
+                raise ValueError(f"Repair Excel missing required columns: {missing}")
+
+            if 'ID' not in df.columns:
+                df.insert(0, 'ID', [f'ID_{i+1:04d}' for i in range(len(df))])
+
+            self.repair_data = df.copy()
+            self.repair_data['Start Date'] = pd.to_datetime(self.repair_data['Start Date'])
+            self.repair_data['End Date'] = pd.to_datetime(self.repair_data['End Date'])
+
+            Logger.success(f"Task 3a: Loaded repair data from '{excel_path}' ({len(self.repair_data)} records)")
+            return self.repair_data
+        except Exception as e:
+            Logger.error(f"Failed to read repair data from Excel: {e}")
+            raise
     
     def _calculate_business_days(self, start_date, end_date, country_name):
         """Calculate business days excluding weekends and holidays (Task 3b)"""
@@ -441,26 +429,72 @@ class RepairAnalysisEngine:
     
     def merge_lead_times(self):
         """Merge lead times from LeadTimes sheet (Task 3c)"""
-        # Create lead times data (from provided content)
-        lead_times_data = {
-            'Country': ['Slovakia', 'Czechia', 'Austria', 'Germany'],
-            'LeadTime ( businessDays)': [3, 3, 4, 5]
-        }
-        lead_times_df = pd.DataFrame(lead_times_data)
-        
+        # Try to read lead times from the repair Excel file (sheet: 'LeadTimes')
+        excel_path = getattr(self.config, 'REPAIR_EXCEL_PATH', None)
+        lead_times_df = None
+
+        if excel_path and os.path.exists(excel_path):
+            try:
+                # Prefer explicit sheet name
+                try:
+                    lt = pd.read_excel(excel_path, sheet_name='LeadTimes')
+                except ValueError:
+                    # Sheet not found — try first sheet or infer from sheets
+                    lt = pd.read_excel(excel_path, sheet_name=0)
+
+                # Normalize columns
+                lt.columns = [str(c).strip() for c in lt.columns]
+                # Map possible column names
+                col_map = {}
+                for c in lt.columns:
+                    lc = c.lower()
+                    if 'country' == lc or 'country' in lc:
+                        col_map[c] = 'Country'
+                    if 'lead' in lc and 'time' in lc:
+                        col_map[c] = 'LeadTime'
+                    if 'leadtime' == lc.replace(' ', ''):
+                        col_map[c] = 'LeadTime'
+
+                if col_map:
+                    lt = lt.rename(columns=col_map)
+
+                if 'Country' in lt.columns and 'LeadTime' in lt.columns:
+                    lead_times_df = lt[['Country', 'LeadTime']].copy()
+                else:
+                    lead_times_df = None
+            except Exception as e:
+                Logger.warning(f"Could not read LeadTimes sheet: {e}")
+
+        # If no lead times found in Excel, attempt to use column in repair_data
+        if lead_times_df is None and self.repair_data is not None:
+            # Look for a lead time column in repair_data
+            for c in self.repair_data.columns:
+                lc = str(c).lower()
+                if 'lead' in lc and 'time' in lc:
+                    lead_times_df = self.repair_data[[ 'Country', c ]].rename(columns={c: 'LeadTime'})
+                    break
+
+        # Fallback to defaults if necessary (keeps script robust)
+        if lead_times_df is None:
+            Logger.warning("No LeadTimes provided in Excel or repair data — using default lead times")
+            lead_times_data = {
+                'Country': ['Slovakia', 'Czechia', 'Austria', 'Germany'],
+                'LeadTime': [3, 3, 4, 5]
+            }
+            lead_times_df = pd.DataFrame(lead_times_data)
+
         # Merge with repair data
         self.results_df = pd.merge(
-            self.repair_data, 
-            lead_times_df, 
-            on='Country', 
+            self.repair_data,
+            lead_times_df,
+            on='Country',
             how='left'
         )
-        
-        # Clean column name
-        self.results_df = self.results_df.rename(
-            columns={'LeadTime ( businessDays)': 'LeadTime'}
-        )
-        
+
+        # If some LeadTime values are missing, fill from defaults where possible
+        if 'LeadTime' not in self.results_df.columns:
+            self.results_df['LeadTime'] = np.nan
+
         Logger.success("Task 3c: Merged lead times with repair data")
         return self.results_df
     
