@@ -254,7 +254,7 @@ class HolidayCountsAggregator:
             (self.holidays_df['Year'] <= 2025)
         ]
         
-        # Ensure we have required countries
+        # Ensure there are the required countries
         required_countries = Config.COUNTRIES
         self.holidays_df = self.holidays_df[
             self.holidays_df['countryCode'].isin(required_countries)
@@ -604,7 +604,7 @@ def main():
             Logger.warning("Creating empty holiday DataFrame - some calculations may be inaccurate")
             holidays_df = pd.DataFrame(columns=['date', 'countryCode'])
     
-    # Save holiday data (if we have it)
+    # Save holiday data (if it exists)
     if holidays_df is not None and len(holidays_df) > 0:
         holiday_fetcher.data = holidays_df
         holiday_fetcher.save_holidays()
